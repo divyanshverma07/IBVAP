@@ -1,0 +1,20 @@
+.venv/
+.venv_old/
+.vscode/
+__pycache__/
+*.pyc
+
+# Ignore large sample videos
+test4.mp4
+test5.mp4
+test7.mp4
+
+# Track required models for deployment
+*.pt
+!yolo11n.pt
+!runs/detect/train/weights/best.pt
+
+# Ignore transient uploads & evidence images
+*.db
+integrated/uploads/*
+integrated/evidence/*

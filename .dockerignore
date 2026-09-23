@@ -1,0 +1,14 @@
+.venv/
+.venv_old/
+.vscode/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.git/
+.gitignore
+test4.mp4
+test5.mp4
+test7.mp4
+integrated/uploads/*
+integrated/evidence/*
