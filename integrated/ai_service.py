@@ -498,6 +498,9 @@ def select_video():
     source_url = data.get('source_url')
     filename = data.get('filename')
     
+    if source_url and source_url.startswith("LOCAL_SAMPLE:"):
+        source_url = os.path.join(config.BASE_DIR, source_url.split("LOCAL_SAMPLE:")[1])
+    
     cam = cameras.get(cam_id, cameras[1])
     cam.load_video(source_url, filename)
     return jsonify({"success": True})

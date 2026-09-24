@@ -149,17 +149,14 @@ def select_video():
 
     safe_name = os.path.basename(filename)
     
-    # Check if local sample or upload
-    # AI service won't have local files if separated, so we serve them
+    # AI service won't have local files if separated, BUT they both cloned the same repo!
+    # So the AI service DOES have the sample files on its local disk!
     if source_type == 'uploaded':
         source_url = f"{PUBLIC_WEB_URL}/uploads/{safe_name}"
     else:
-        # It's a sample file. If it's not in uploads, maybe we can't serve it directly if it's in root.
-        # But for prototype, let's assume sample files are accessible or we pass the local absolute path
-        # Assuming AI service might be on the same disk if using Render persistent disk.
-        # If not, passing absolute path will fail. We'll pass the URL to our root files if we add an endpoint.
-        # Let's add a quick root endpoint for samples.
-        source_url = f"{PUBLIC_WEB_URL}/samples/{safe_name}"
+        # It's a sample file. Pass a special flag or just rely on AI service to resolve it.
+        # Actually, let's just pass the filename and let ai_service resolve it locally!
+        source_url = "LOCAL_SAMPLE:" + safe_name
 
     try:
         requests.post(f"{AI_SERVICE_URL}/api/select_video", json={
