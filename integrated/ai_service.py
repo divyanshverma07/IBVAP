@@ -348,25 +348,45 @@ class CameraPipeline:
                     if self.state["stream_status"] == "PAUSED":
                         self.state["stream_status"] = "LIVE"
 
-            start_time = time.time()
-            frame_counter += 1
+            try:
+                start_time = time.time()
+                frame_counter += 1
 
-            ret, frame = self.video.read_frame()
-            if not ret:
-                if not is_live and self.video and self.video.cap:
-                    self.video.cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
-                    self.fence_module.person_states.clear()
-                    self.target_logged_cooldown.clear()
-                time.sleep(0.01)
+                ret, frame = self.video.read_frame()
+                if not ret:
+                    if not is_live and self.video and self.video.cap:
+                        self.video.cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
+                        self.fence_module.person_states.clear()
+                        self.target_logged_cooldown.clear()
+                    time.sleep(0.01)
+                    continue
+
+                h, w = frame.shape[:2]
+                active_polygon = np.array([[int(w * 0.15), int(h * 0.18)], [int(w * 0.85), int(h * 0.18)], [int(w * 0.90), int(h * 0.90)], [int(w * 0.10), int(h * 0.90)]], dtype=np.int32)
+                self.fence_module.fence_polygon = active_polygon
+                self.drawer.fence_polygon = active_polygon
+
+                yolo_detections = self.yolo_tracker.track(frame)
+                anpr_boxes, last_ocr = self.anpr_module.process_frame(frame)
+                fence_results = self.fence_module.process_detections(frame, yolo_detections, vehicle_plates=self.tracked_vehicle_plates, camera_label=self.label)
+
+                proc_time = time.time() - start_time
+                fps = 1.0 / proc_time if proc_time > 0 else 0.0
+
+                annotated = self.drawer.draw(frame, yolo_detections, fence_results, anpr_boxes, last_ocr, fps)
+
+                ret_enc, buffer = cv2.imencode('.jpg', annotated, [int(cv2.IMWRITE_JPEG_QUALITY), 60])
+                if ret_enc:
+                    self.latest_frame_encoded = buffer.tobytes()
+            except Exception as e:
+                import traceback
+                print(f"[{self.label}] AI Error: {e}")
+                traceback.print_exc()
+                with self.lock:
+                    self.state["stream_status"] = "ERROR"
+                    self.state["error_message"] = str(e)
+                time.sleep(2)
                 continue
-
-            h, w = frame.shape[:2]
-            active_polygon = np.array([[int(w * 0.15), int(h * 0.18)], [int(w * 0.85), int(h * 0.18)], [int(w * 0.90), int(h * 0.90)], [int(w * 0.10), int(h * 0.90)]], dtype=np.int32)
-            self.fence_module.fence_polygon = active_polygon
-            self.drawer.fence_polygon = active_polygon
-
-            yolo_detections = self.yolo_tracker.track(frame)
-            anpr_boxes, last_ocr = self.anpr_module.process_frame(frame)
 
             for p_box in anpr_boxes:
                 px1, py1, px2, py2 = p_box["bbox"]
