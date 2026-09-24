@@ -12,7 +12,7 @@ YOLO_MODEL_PATH = os.environ.get("YOLO_MODEL_PATH", os.path.join(BASE_DIR, "yolo
 YOLO_CONFIDENCE = float(os.environ.get("YOLO_CONFIDENCE", "0.40"))
 
 # ANPR settings (License Plates)
-ANPR_MODEL_PATH = os.environ.get("ANPR_MODEL_PATH", os.path.join(BASE_DIR, "runs", "detect", "train", "weights", "best.pt"))
+ANPR_MODEL_PATH = os.environ.get("ANPR_MODEL_PATH", os.path.join(BASE_DIR, "runs", "detect", "train", "weights", "best.bin"))
 ANPR_CONFIDENCE = float(os.environ.get("ANPR_CONFIDENCE", "0.25"))
 OCR_INTERVAL = int(os.environ.get("OCR_INTERVAL", "10"))
 
