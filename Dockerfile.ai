@@ -32,4 +32,6 @@ USER appuser
 
 WORKDIR /app/integrated
 
+EXPOSE 5001
+
 CMD sh -c "gunicorn --bind 0.0.0.0:${PORT:-5001} --workers 1 --threads 4 ai_service:app"
