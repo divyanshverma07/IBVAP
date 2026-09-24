@@ -1,0 +1,35 @@
+FROM python:3.10-slim
+
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1
+
+# Install required system dependencies for OpenCV and EasyOCR
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ffmpeg \
+    libgl1 \
+    libglib2.0-0 \
+    libgomp1 \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN useradd -m -u 1000 appuser
+
+WORKDIR /app
+
+COPY requirements-ai.txt .
+
+RUN pip install --no-cache-dir --upgrade pip && \
+    pip install --no-cache-dir -r requirements-ai.txt
+
+COPY . /app/
+
+RUN mkdir -p /app/integrated/uploads /app/integrated/evidence \
+             /home/appuser/.paddlex /home/appuser/.paddleocr \
+             /home/appuser/.config/Ultralytics && \
+    chown -R appuser:appuser /app /home/appuser
+
+USER appuser
+
+WORKDIR /app/integrated
+
+CMD sh -c "gunicorn --bind 0.0.0.0:${PORT:-5001} --workers 1 --threads 4 ai_service:app"

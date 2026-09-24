@@ -1,9 +1,7 @@
 import sys
 import os
 os.environ["KMP_DUPLICATE_LIB_OK"] = "TRUE"
-import torch
-torch.set_num_threads(1)
-torch.set_grad_enabled(False)
+
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 import time
@@ -46,8 +44,10 @@ def main():
     drawer = Drawer(custom_polygon)
 
     # Video Writer setup
-    fourcc = cv2.VideoWriter_fourcc(*"mp4v")
-    writer = cv2.VideoWriter(config.OUTPUT_VIDEO_PATH, fourcc, video.fps, (video.width, video.height))
+    writer = None
+    if config.ENABLE_VIDEO_RECORDING:
+        fourcc = cv2.VideoWriter_fourcc(*"mp4v")
+        writer = cv2.VideoWriter(config.OUTPUT_VIDEO_PATH, fourcc, video.fps, (video.width, video.height))
 
     print("========================================")
     print(" INTEGRATED SURVEILLANCE PIPELINE STARTED")
@@ -62,24 +62,18 @@ def main():
             print("Video ended.")
             break
 
-        # 1. Run Unified YOLO Tracker (Persons, Vehicles, etc.)
         yolo_detections = yolo_tracker.track(frame)
-
-        # 2. Run Fence Logic (Filters for Persons internally)
         fence_results = fence_module.process_detections(frame, yolo_detections)
-
-        # 3. Run ANPR Logic (Plates + OCR)
         anpr_boxes, last_ocr = anpr_module.process_frame(frame)
 
-        # 4. Calculate FPS
         processing_time = time.time() - start_time
         fps = 1.0 / processing_time if processing_time > 0 else 0
 
-        # 5. Draw everything onto the frame
         frame = drawer.draw(frame, yolo_detections, fence_results, anpr_boxes, last_ocr, fps)
 
-        # 6. Show and Write Frame
-        writer.write(frame)
+        if writer:
+            writer.write(frame)
+            
         cv2.imshow("Integrated Surveillance Pipeline", frame)
 
         if cv2.waitKey(1) & 0xFF == ord('q'):
@@ -87,24 +81,18 @@ def main():
 
     # Cleanup
     video.release()
-    writer.release()
+    if writer:
+        writer.release()
     cv2.destroyAllWindows()
 
 def run_dashboard():
-    from app import app, processing_thread
-    import threading
-    os.makedirs(config.EVIDENCE_DIR, exist_ok=True)
-    t = threading.Thread(target=processing_thread, daemon=True)
-    t.start()
-    print("\n" + "="*50)
-    print("🚀 BORDER SURVEILLANCE DASHBOARD LIVE: http://127.0.0.1:5000")
-    print(" Open your browser and go to: http://127.0.0.1:5000")
-    print("="*50 + "\n")
-    app.run(host='0.0.0.0', port=5000, debug=False, threaded=True)
+    print("Starting Web Dashboard...")
+    from app import app
+    port = int(os.environ.get("PORT", 5000))
+    app.run(host='0.0.0.0', port=port, debug=False, threaded=True)
 
 if __name__ == "__main__":
     if len(sys.argv) > 1 and sys.argv[1] == "--desktop":
         main()
     else:
         run_dashboard()
-
