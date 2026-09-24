@@ -296,7 +296,30 @@ class CameraPipeline:
                 if self.video is not None:
                     self.video.release()
 
-                loaded_source = target_src
+                if target_src.startswith("http"):
+                    # Download it locally first to avoid cv2.VideoCapture network hangs!
+                    import urllib.request
+                    local_dl_path = os.path.join(config.BASE_DIR, "integrated", "uploads", "downloaded_temp.mp4")
+                    try:
+                        print(f"[{self.label}] Downloading remote video: {target_src}")
+                        # 5 second timeout for connection
+                        req = urllib.request.Request(target_src, headers={'User-Agent': 'Mozilla/5.0'})
+                        with urllib.request.urlopen(req, timeout=5) as response, open(local_dl_path, 'wb') as out_file:
+                            out_file.write(response.read())
+                        loaded_source = local_dl_path
+                    except Exception as e:
+                        print(f"[{self.label}] Failed to download video: {e}")
+                        with self.lock:
+                            self.is_processing = False
+                            self.state["stream_status"] = "ERROR"
+                            self.state["error_message"] = "Failed to download uploaded video."
+                        self.video = None
+                        loaded_source = None
+                        time.sleep(0.5)
+                        continue
+                else:
+                    loaded_source = target_src
+
                 self.video = VideoStream(loaded_source, camera_id=self.label, max_dim=480) # REDUCED TO 480 FOR OPTIMIZATION
                 if not self.video.connect():
                     with self.lock:
@@ -452,6 +475,10 @@ class CameraPipeline:
             if ret:
                 self.latest_frame_encoded = buffer.tobytes()
 
+            # YIELD TO FLASK: Prevent CPU starvation on low-tier cloud instances
+            # Without this, the background thread pegs the CPU and Gunicorn times out HTTP requests
+            time.sleep(0.05)
+            
 cameras = {
     1: CameraPipeline(cam_id=1, label="CAM-01"),
     2: CameraPipeline(cam_id=2, label="CAM-02")
